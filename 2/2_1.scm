@@ -1,4 +1,4 @@
-;; 2.1
+;; 2.1.1
 ;; 有理数の演算の定義
 (define (add-rat x y)
   (make-rat (+ (* (numer x) (denom y))
@@ -40,9 +40,9 @@
   (display (denom x)))
 
 ;; 動作確認
-(define one-half (make-rat 1 2))
+;;(define one-half (make-rat 1 2))
 ;; (print-rat one-half)
-(define one-third (make-rat 1 3))
+;;(define one-third (make-rat 1 3))
 ;; (print-rat (add-rat one-half one-third))
 ;; (print-rat (sub-rat one-half one-third))
 ;; (print-rat (mul-rat one-half one-third))
@@ -63,7 +63,7 @@
   ;; 既約分数にする
   (let ((g (gcd n d)))
     (let ((n-g (/ n g))
-           (d-g (/ d g)))
+          (d-g (/ d g)))
           (if (> d-g 0)
               (cons n-g d-g)
               (cons (* -1 n-g) (* -1 d-g))))))
@@ -78,7 +78,50 @@
         (cons (/ (- n) g) (/ (- d) g))
         (cons (/ n g) (/ d g)))))
 
-(print-rat (make-rat  1 -2))
-(print-rat (make-rat -1  2))
-(print-rat (make-rat  1  2))
-(print-rat (make-rat -1 -2))
+;; 2.1.2
+(define (make-rat n d) (cons n d))
+(define (numer x)
+  (let ((g (gcd (car x) (cdr x))))
+    (/ (car x) g)))
+(define (denom x)
+  (let ((g (gcd (car x) (cdr x))))
+    (/ (cdr x) g)))
+
+;;(print-rat (make-rat  1 -2))
+;;(print-rat (make-rat -1  2))
+;;(print-rat (make-rat  1  2))
+;;(print-rat (make-rat -1 -2))
+
+;; R2.2
+(define (make-point x y) (cons x y))
+(define (x-point p) (car p))
+(define (y-point p) (cdr p))
+(define (print-point p)
+  (newline)
+  (display "(")
+  (display (x-point p))
+  (display ",")
+  (display (y-point p))
+  (display ")"))
+
+(define (make-segment start end) (cons start end))
+(define (start-segment segment) (car segment))
+(define (end-segment segment) (cdr segment))
+(define (midpoint-segment s)
+  (define (average a b) (/ (+ a b) 2))
+  (let ((mid-x (average (x-point (start-segment s)) (x-point (end-segment s))))
+        (mid-y (average (y-point (start-segment s)) (y-point (end-segment s)))))
+        (make-point mid-x mid-y)))
+(define (print-segment s)
+  (newline)
+  (display "---print-segment start---")
+  (display (print-point (start-segment s)))
+  (display (print-point (end-segment s)))
+  (newline)
+  (display "---print-segment end---"))
+
+;;(define a (make-point 12 -3))
+;;(define b (make-point -27 6))
+;;(define sg (make-segment a b))
+;;(print-segment sg)
+;;(print-point (midpoint-segment sg))
