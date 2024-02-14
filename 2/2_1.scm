@@ -125,3 +125,125 @@
 ;;(define sg (make-segment a b))
 ;;(print-segment sg)
 ;;(print-point (midpoint-segment sg))
+
+;; R2.3
+;; 必用なもろもろ
+(define (square x) (* x x))
+(define (iterative-improve good? improve)
+  (define (improving guess)
+  (if (good? guess)
+    guess
+    (improving (improve guess))))
+  (lambda (first-guess)
+  (improving first-guess)))
+(define (sqrt n)
+  (define (good-sqrt guess)
+  (define tolerance 0.00001)
+  (< (abs (- n (square guess))) tolerance))
+  (define (improve-sqrt guess)
+  (define (average a b) (/ (+ a b) 2))
+  (average guess (/ n guess)))
+  ((iterative-improve good-sqrt improve-sqrt) 1.0))
+(define (get-length sg)
+  (sqrt (+  (square (- (x-point (end-segment sg)) (x-point (start-segment sg))))
+            (square (- (y-point (end-segment sg)) (y-point (start-segment sg)))))))
+;; 90度に交わる線分を2つとるアプローチ
+;(define (make-rectangle sga sgb)
+;  (cons (get-length sga) (get-length sgb)))
+(define (get-virtical sg) (car sg))
+(define (get-longitudinal sg) (cdr sg))
+;; 4点をとるアプローチ
+;;(define (make-rectangle a b c d)
+;;  (cons (get-length (make-segment a b)) (get-length (make-segment c d))))
+;; x軸,y軸に平行な長方形を対角で相対する頂点 corner0 cornet1で表現する
+(define (make-rectangle corner0 corner1)
+  (let ((longitudinal (abs (- (x-point corner0) (x-point corner1))))
+        (virtical     (abs (- (y-point corner0) (y-point corner1)))))
+        (cons longitudinal virtical)))
+
+;; 外周
+(define (peremeter rect)
+  (+  (* 2 (get-virtical rect))
+      (* 2 (get-longitudinal rect))))
+;; 面積
+(define (area rect)
+  (* (get-virtical rect) (get-longitudinal rect)))
+
+;;(define origin (make-point 0 0))
+;;(define a-point (make-point 0.71 0.71))
+;;(define b-point (make-point 0.71 -0.71))
+;;(define c-point (make-point 1.4 0))
+;;(define sga (make-segment origin a-point))
+;;(define sgb (make-segment origin b-point))
+;;;;(define rct (make-rectangle sga sgb))
+;;;;(define rct (make-rectangle origin a-point b-point c-point))
+;;(define rct (make-rectangle (make-point 1 1) (make-point 2 3)))
+;;(display (peremeter rct))
+;;(newline)
+;;(display (area rct))
+;;(newline)
+
+;; R2.4
+;; consはmの処理にx yを渡す
+(define (cons x y)
+  (lambda (m) (m x y)))
+;; carは(p q)を受け取ってpを返す
+(define (car z)
+  (z (lambda (p q) p)))
+;;(car (cons x y))
+;;↓
+;;(car (lambda (m) (m x y)))
+;;↓
+;;((lambda (m) (m x y)) (lambda (p q) p))
+;;↓
+;;((lambda (p q) p) x y)
+;;↓
+;;(x)
+
+(define (cdr z)
+  (z (lambda (p q) q)))
+
+;; R2.5
+(define (2-5-cons  a b) (cons (expt 2 a) (expt 3 b)))
+(define (2-5-car p) (log (car p) 2))
+(define (2-5-cdr p) (log (cdr p) 3))
+(define x (2-5-cons 3 9))
+;;(display (2-5-car x))
+;;(newline)
+;;(display (2-5-cdr x))
+;;(newline)
+
+;; R2.6
+(define zero (lambda (f) (lambda (x) x)))
+(define (add-1 n)
+  (lambda (f) (lambda (x) (f ((n f) x)))))
+
+(add-1 zero)
+;; 引数が渡されてるlambdaを評価していき、評価できなくなったらおわり
+((lambda (n) (lambda (f) (lambda (x) (f ((n f) x))))) zero)
+(lambda (n) (lambda (f) (lambda (x) (f ((n f) x))))) (lambda (f) (lambda (x) x))
+(lambda (n) (lambda (f) (lambda (x) (f ((n f) x))))) 
+(lambda (f) (lambda (x) (f (((lambda (f) (lambda (x) x)) f) x))))
+(lambda (f) (lambda (x) (f x)))
+(define one (lambda (f) (lambda (x) (f x))))
+
+(add-1 one)
+;↓add-1の定義を代入
+((lambda (n) (lambda (f) (lambda (x) (f ((n f) x))))) one)
+;↓oneの定義を代入
+((lambda (n) (lambda (f) (lambda (x) (f ((n f) x))))) (lambda (f) (lambda (x) (f x))))
+;↓lambda(f)をxで評価し、いらない()を外す
+(lambda (f) (lambda (x) (f (((lambda (f) (lambda (x) (f x))) f) x))))
+;↓lambda(f)をxで評価し、いらない()を外す
+(lambda (f) (lambda (x) (f ((lambda (x) (f x)) x))))
+;↓lambda(x)をxで評価し、いらない()を外す
+(lambda (f) (lambda (x) (f (f x))))
+; もう評価できるものはない
+(define two (lambda (f) (lambda (x) (f (f x)))))
+
+(define zero (lambda (f) (lambda (x) x)))
+(define one (lambda (f) (lambda (x) (f x))))
+(define two (lambda (f) (lambda (x) (f (f x)))))
+;; ↑xに対しfを何回実行しますかという定義になっている
+(define church+ (lambda m b) (lambda (f) (lambda (x) ((m f) ((n f) x)))))
+;; ↑fをm回実行したものと、fをn回実行したものをxに対して実行している
