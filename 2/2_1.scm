@@ -222,7 +222,7 @@
 ;; 引数が渡されてるlambdaを評価していき、評価できなくなったらおわり
 ((lambda (n) (lambda (f) (lambda (x) (f ((n f) x))))) zero)
 (lambda (n) (lambda (f) (lambda (x) (f ((n f) x))))) (lambda (f) (lambda (x) x))
-(lambda (n) (lambda (f) (lambda (x) (f ((n f) x))))) 
+(lambda (n) (lambda (f) (lambda (x) (f ((n f) x)))))
 (lambda (f) (lambda (x) (f (((lambda (f) (lambda (x) x)) f) x))))
 (lambda (f) (lambda (x) (f x)))
 (define one (lambda (f) (lambda (x) (f x))))
@@ -245,5 +245,153 @@
 (define one (lambda (f) (lambda (x) (f x))))
 (define two (lambda (f) (lambda (x) (f (f x)))))
 ;; ↑xに対しfを何回実行しますかという定義になっている
-(define church+ (lambda m b) (lambda (f) (lambda (x) ((m f) ((n f) x)))))
+(define church+ (lambda (m n) (lambda (f) (lambda (x) ((m f) ((n f) x))))))
 ;; ↑fをm回実行したものと、fをn回実行したものをxに対して実行している
+
+
+;; 区間演算
+(define (add-interval x y)
+  (make-interval (+ (lower-bound x) (lower-bound y))
+                 (+ (upper-bound x) (upper-bound y))))
+(define (mul-interval x y)
+  (let ((p1 (* (lower-bound x) (lower-bound y)))
+        (p2 (* (upper-bound x) (lower-bound y)))
+        (p3 (* (lower-bound x) (upper-bound y)))
+        (p4 (* (upper-bound x) (upper-bound y))))
+    (make-interval  (min p1 p2 p3 p4)
+                    (max p1 p2 p3 p4))))
+(define (div-interval x y)
+  (mul-interval
+    x
+    (make-interval (/ 1.0 (upper-bound y))
+                   (/ 1.0 (lower-bound y)))))
+;; R2.7
+(define (make-interval a b) (cons a b))
+(define (upper-bound x) (cdr x))
+(define (lower-bound x) (car x))
+
+;(display (lower-bound (make-interval 10 20)))
+;(newline)
+;(display (upper-bound (make-interval 10 20)))
+;(newline)
+
+;; R2.8
+;; 差が取りうる最小値は、xの下限からyの上限を引く
+;; 差が取りうる最大値は、xの上限からyの下限を引く(xに対してyを引く演算なので、この順序固定)
+(define (sub-interval x y)
+  (make-interval  (- (lower-bound x) (upper-bound y))
+                  (- (upper-bound x) (lower-bound y))))
+
+;; R2.9
+;width(x) -> 1/2 (x_u - x_l)
+;width(add-interval(x, y)) -> width([(x_l + y_l), (x_u + y_u)])
+;-> 1/2 {(x_u + y_u) - (x_l + y_l)}
+;-> 1/2 {(x_u - x_l) + (y_u - y_l)}
+;-> width(x) + width(y)
+;
+;width(sub-interval(x, y)) -> width([(x_l - y_u), (x_u - y_l)])
+;-> 1/2(x_u - y_l - x_l + y_u)
+;-> 1/2{(x_u - x_l) - (- y_l + y_u)}
+;-> width(x) - width(y)
+;
+(define (width interval)
+  (/  (-  (upper-bound interval)
+          (lower-bound interval))
+      2))
+;(define a (make-interval 9 11))
+;(define b (make-interval 1 3))
+;(define c (make-interval 19 21))
+;(print (width (mul-interval a b)))
+;(print (width (mul-interval a c)))
+;(print (width (div-interval a b)))
+;(print (width (div-interval a c)))
+
+;; R2.10
+(define (div-interval x y)
+  (if (and (< (lower-bound y) 0) (< 0 (upper-bound y)))
+      (error "*** sub-interval *** y is bridging 0!")
+      (mul-interval
+        x
+        (make-interval (/ 1.0 (upper-bound y))
+                       (/ 1.0 (lower-bound y))))))
+;(define a (make-interval 0 1))
+;(define b (make-interval -1 1))
+;(print (div-interval a b))
+
+;; R2.11
+(define (make-interval a b) (cons (min a b) (max a b)))
+(define (upper-bound x) (cdr x))
+(define (lower-bound x) (car x))
+
+(define (new-mul-interval x y)
+  (let ((xl (lower-bound x)) (xu (upper-bound x))
+        (yl (lower-bound y)) (yu (upper-bound y)))
+        (cond ((< xu 0)
+                (cond ((< yu 0) (make-interval (* xu yu) (* xl yl)))
+                      ((< yl 0) (make-interval (* xl yu) (* xl yl)))
+                      (else     (make-interval (* xl yu) (* xu yl)))))
+              ((< xl 0)
+                (cond ((< yu 0) (make-interval (* xu yl) (* xl yl)))
+                      ((< yl 0) (make-interval (min (* xl yu) (* xu yl))
+                                               (max (* xl yl) (* xu yu))))
+                      (else     (make-interval (* xl yu) (* xu yu)))))
+              (else
+                (cond ((< yu 0) (make-interval (* xu yl) (* xl yu)))
+                      ((< yl 0) (make-interval (* xu yl) (* xu yu)))
+                      (else     (make-interval (* xl yl) (* xu yu))))))))
+
+(define (print-interval intvl) (display "[") (display (lower-bound intvl)) (display ",") (display (upper-bound intvl)) (display "]"))
+
+;(define xp (make-interval 2 3))
+;(define yp (make-interval 4 5))
+;(define xm (make-interval -5 -4))
+;(define ym (make-interval -3 -2))
+;(define xz (make-interval -2 1))
+;(define yz (make-interval -1 2))
+;
+;(print-interval (new-mul-interval xp yp)) (print-interval (mul-interval xp yp)) (newline)
+;(print-interval (new-mul-interval xp yz)) (print-interval (mul-interval xp yz)) (newline)
+;(print-interval (new-mul-interval xp ym)) (print-interval (mul-interval xp ym)) (newline)
+;(print-interval (new-mul-interval xz yp)) (print-interval (mul-interval xz yp)) (newline)
+;(print-interval (new-mul-interval xz yz)) (print-interval (mul-interval xz yz)) (newline)
+;(print-interval (new-mul-interval xz ym)) (print-interval (mul-interval xz ym)) (newline)
+;(print-interval (new-mul-interval xm yp)) (print-interval (mul-interval xm yp)) (newline)
+;(print-interval (new-mul-interval xm yz)) (print-interval (mul-interval xm yz)) (newline)
+;(print-interval (new-mul-interval xm ym)) (print-interval (mul-interval xm ym)) (newline)
+
+
+;; R2.12
+(define (make-center-width c w)
+  (make-interval (- c w) (+ c w)))
+(define (center i)
+  (/ (+ (lower-bound i) (upper-bound i)) 2))
+(define (width i)
+  (/ (- (upper-bound i) (lower-bound i)) 2))
+
+(define (make-center-percent center percent)
+  (make-interval (- center (* center (/ percent 100)))
+				 (+ center (* center (/ percent 100)))))
+(define (percent i)
+  (abs (* 100 (/ (width i) (center i)))))
+;; (print-interval (make-center-percent 100 22))
+;; (newline)
+;; (display (percent (make-center-percent 100 22)))
+;; (newline)
+
+;; R2.13
+
+;; R2.14
+(define (par1 r1 r2)
+  (div-interval (mul-interval r1 r2)
+				(add-interval r1 r2)))
+(define (par2 r1 r2)
+  (let ((one (make-interval 1 1)))
+	(div-interval
+	 one (add-interval (div-interval one r1)
+					   (div-interval one r2)))))
+(define a (make-center-percent 100 1))
+(define b (make-center-percent 200 1))
+(display (percent a)) (newline)
+(display (percent b)) (newline)
+(display (percent (div-interval a a))) (newline) ;; 1%どうしなのに...
+(display (percent (div-interval a b))) (newline) ;; 同上
