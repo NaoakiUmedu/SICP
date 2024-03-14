@@ -247,3 +247,189 @@
 
 ;; subsetsが引数sのすべての部分集合のリストを返すとすると、restはsの先頭要素をのぞいた集合のすべての部分集合のリスト
 ;; sのすべての部分集合のリストは、restと、restの各要素にsの先頭要素を追加したものとの合成となる
+
+;; 2.2.3
+(define (filter predicate sequence)
+  (cond ((null? sequence) '())
+		((predicate (car sequence)) (cons (car sequence)
+										  (filter predicate (cdr sequence))))
+		(else (filter predicate (cdr sequence)))))
+
+(define (accumulate op initial sequence)
+  (if (null? sequence)
+	  initial
+	  (op (car sequence)
+		  (accumulate op initial (cdr sequence)))))
+
+(define (enumerate-interval low high)
+  (if (> low high)
+	  '()
+	  (cons low (enumerate-interval (+ low 1) high))))
+
+(define (enumerate-tree tree)
+  (cond ((null? tree) '())
+		((not (pair? tree)) (list tree))
+		(else (append (enumerate-tree (car tree))
+					  (enumerate-tree (cdr tree))))))
+
+;; R2.33
+(define (map p sequence)
+  (accumulate (lambda (x y) (cons (p x) y)) '() sequence))
+
+(define (append seq1 seq2)
+  (accumulate cons seq2 seq1))
+
+(define (length sequence)
+  (accumulate (lambda (x y) (+ 1 y)) 0 sequence))
+
+;; R2.34
+(define (horner-eval x coefficient-sequence)
+  (accumulate (lambda (this-coeff higher-terms) (+ this-coeff (* x higher-terms)))
+			  0
+			  coefficient-sequence))
+
+;; R2.35
+(define (count-leaves t)
+  (accumulate + 0 (map (lambda (x) (if (pair? x) (count-leaves x) 1)) t)))
+
+;; R2.36
+(define (accumulate-n op init seqs)
+  (if (null? (car seqs))
+	  '()
+	  (cons (accumulate op init (map car seqs))
+			(accumulate-n op init (map cdr seqs)))))
+
+;; R2.37
+(define (dot-product v m)
+  (accumulate + 0 (map * v m)))
+(define (matrix-*-vector m v)
+  (map (lambda (x) (dot-product v x)) m))
+(define (transpose mat)
+  (accumulate-n cons '() mat))
+(define (matrix-*-matrix m n)
+  (let ((cols (transpose n)))
+	(map (lambda (x) (matrix-*-vector cols x)) m)))
+
+;; R2.38
+(define (fold-left op initial sequence)
+  (define (iter result rest)
+	(if (null? rest)
+		result
+		(iter (op result (car rest))
+			  (cdr rest))))
+  (iter initial sequence))
+; (二項演算opが可換であること)
+
+;; R2.39
+(define (reverse sequence)
+  (fold-right (lambda (x y) (append y (list x))) '() sequence))
+
+(define (reverse sequence)
+  (fold-left (lambda (x y) (append (list y) x)) '() sequence))
+
+;; 写像の入れ子
+(define (flatmap proc seq)
+  (accumulate append '() (map proc seq)))
+(define (prime-sum? pair)
+  (prime? (+ (car pair) (cadr pair))))
+(define (prime? n)
+  (define (prime-iter x)
+	(if (= 0 (remainder n x))
+		x
+		(prime-iter (- x 1))))
+  (cond ((= n 1) #f)
+		((= n 2) #t)
+		(else (= 1 (prime-iter (ceiling (sqrt n)))))))
+(define (make-pair-sum pair)
+  (list (car pair) (cadr pair) (+ (car pair) (cadr pair))))
+(define (prime-sum-pairs n)
+  (map make-pair-sum
+	   (filter prime-sum?
+			   (flatmap (lambda (i)
+						  (map (lambda (j) (list i j))
+							   (enumerate-interval 1 (- i 1))))
+						(enumerate-interval 1 n)))))
+
+(define (remove val seq)
+  (filter (lambda (x) (not (= val x))) seq))
+(define (permutations s)
+  (if (null? s)
+	  (list '())
+	  (flatmap (lambda (x)
+				 (map (lambda (p) (cons x p))
+					  (permutations (remove x s))))
+			   s)))
+
+;; R2.40
+(define (unique-pairs n)
+  (flatmap (lambda (i)
+			 (map (lambda (j) (list i j))
+				  (enumerate-interval 1 (- i 1))))
+		   (enumerate-interval 1 n)))
+(define (prime-sum-pairs n)
+  (map make-pair-sum
+	   (filter prime-sum?
+			   (unique-pairs n))))
+
+;; R2.41
+;; flatmapは空集合を除いている(append '() '()) => '()
+(define (unique-trios n)
+  (flatmap (lambda (i)
+			 (flatmap (lambda (j)
+						(map (lambda (k) (list i j k))
+							 (enumerate-interval 1 (- j 1))))
+					  (enumerate-interval 1 (- i 1))))
+		   (enumerate-interval 1 n)))
+(define (s-sum-pairs s)
+  (filter (lambda (x)
+				  (= s (+ (car x) (cadr x) (caddr x))))
+		  (unique-trios s)))
+
+;; R2.42
+(define (queens board-size)
+  (define (queen-cols k)
+    (if (= k 0)
+        (list empty-board)
+        (filter
+         (lambda (positions) (safe? k positions))
+         (flatmap
+          (lambda (rest-of-queens)
+			(display (number-list->string rest-of-queens)) (newline)
+            (map (lambda (new-row)
+                   (adjoin-position new-row k rest-of-queens))
+                 (enumerate-interval 1 board-size)))
+          (queen-cols (- k 1))))))
+  (queen-cols board-size))
+
+(define (adjoin-position new-row k rest-of-queens)
+  (cons new-row rest-of-queens))
+
+(define empty-board '())
+
+(define (safe? k positions)
+  (define (safe-iter x n)
+	(or (= n k)
+		(let ((y (list-ref positions n)))
+		  (and (not (= x y))       ;; 同じ行ならアウト
+			   (not (= (- x y) n)) ;; 斜めの線はy=x+nになる
+			   (not (= (- y x) n)) ;; ↑の逆
+			   (safe-iter x (+ n 1))))))
+  (display (string-append "safe? " (number->string k) " (" (number-list->string positions) ")")) (newline)
+  (safe-iter (car positions) 1))
+
+;; R2.43
+(flatmap
+ (lambda (new-row)
+   (map (lambda (rest-of-queens)
+		  (adjoin-position new-row k rest-of-queens))
+		(queen-cols (- k 1)))
+   (enumerate-interval 1 board-size)))
+
+;; もとのqueensではqueen-colsはboard-size回呼ばれている
+
+;; Louisのqueensでは(new-row)につき1回よばれている
+;; たとえば(queen-cols 8)では(queen-cols 7)がboard-size回よばれる
+;; 上記よりよってboard-size=8の場合、1 + 1*8 + 1*8*8 + 1*8*8*8 ....
+;;                                8   7     6       5
+;; => 1 + 8^1 + 8^2 + 8^3 + 8^4 + 8^5 + 8^6 + 8^7 = (8^8 - 1)/7
+;; 2.42ではqueens-colは8回なので、Louisは2.42に対し(8^8 - 1)/7/8倍遅い
