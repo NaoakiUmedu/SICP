@@ -164,3 +164,63 @@
 
 ;; d
 ;; 上記deriv-packageのputしてるところの演算子と'derivの順番を入れ替えるだけ
+
+;; R2.74
+;; a
+;; それぞれの事業所のファイルは名前をキーにaddressやsalaryを取得できなければならない
+;; ファイルの定義例
+(define tanuki-file
+  (list
+   'tanuki
+   (list (list 'ponta
+			   (list 'address "Kinshicho")
+			   (list 'salary 298000))
+		 (list 'ponkichi
+			   (list 'address "Isezakichojamachi")
+			   (list 'salary 279000)))))
+;; get-recordに必要な定義
+(define (type-tag file)
+  (car file))
+(define (get-record file name)
+  (define (make-record name address salary)
+	(list name address salary))
+  (make-record
+   name
+   ((get (type-tag file) 'get-address) file name)
+   ((get (type-tag file) 'get-salary) file name)))
+;; tanuki-file用のレコード取得処理
+(define (tanuki-file-package)
+  ;; public
+  (define (get-address file name)
+	(let ((record (find-record (get-records file) name)))
+	  (if (null? record) '()
+		  (cadr (cadr record)))))
+  (define (get-salary file name)
+	(let ((record (find-record (get-records file) name)))
+	  (if (null? record) '()
+		  (cadr (caddr record)))))
+  ;; private
+  (define (get-records file)
+	(cadr file))
+  (define (find-record records name)
+	(cond ((null? records) '())
+		  ((eq? (caar records) name) (car records))
+		  (else (find-record (cadr records) name))))
+  ;; インターフェース
+  (put 'tanuki 'get-address get-address)
+  (put 'tanuki 'get-salary get-salary)
+  'done)
+
+;; b
+(define (get-name-from-record record)
+  (car record))
+(define (get-address-from-record record)
+  (cadr record))
+(define (get-salary-from-record record)
+  (caddr record))
+(define (get-salary file name)
+  (get-salary-from-record
+   (get-record file name)))
+
+;; c
+;; 他の事業所のファイルの定義例
