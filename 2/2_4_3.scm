@@ -184,13 +184,19 @@
 (define (get-record file name)
   (define (make-record name address salary)
 	(list name address salary))
-  (make-record
-   name
-   ((get (type-tag file) 'get-address) file name)
-   ((get (type-tag file) 'get-salary) file name)))
+  (if (null? ((get (type-tag file) 'get-name) file name))
+	  '()
+	  (make-record
+	   name
+	   ((get (type-tag file) 'get-address) file name)
+	   ((get (type-tag file) 'get-salary) file name))))
 ;; tanuki-file用のレコード取得処理
 (define (tanuki-file-package)
   ;; public
+  (define (get-name file name)
+	(let ((record (find-record (get-records file) name)))
+	  (if (null? record) '()
+		  (car record))))
   (define (get-address file name)
 	(let ((record (find-record (get-records file) name)))
 	  (if (null? record) '()
@@ -205,10 +211,11 @@
   (define (find-record records name)
 	(cond ((null? records) '())
 		  ((eq? (caar records) name) (car records))
-		  (else (find-record (cadr records) name))))
+		  (else (find-record (cdr records) name))))
   ;; インターフェース
   (put 'tanuki 'get-address get-address)
   (put 'tanuki 'get-salary get-salary)
+  (put 'tanuki 'get-name get-name)
   'done)
 
 ;; b
@@ -224,3 +231,53 @@
 
 ;; c
 ;; 他の事業所のファイルの定義例
+(define kitsune-file
+  (list 'kitsune
+		(list
+		 (list 'konta
+			   (list 'salary 2000)
+			   (list 'address "Umi"))
+		 (list 'kitsuneta
+			   (list 'salary 3000)
+			   (list 'address "Yama")))))
+
+(define (kitsune-file-package)
+  ;; public
+  (define (get-name file name)
+	(let ((record (find-record (get-records file) name)))
+	  (if (null? record) '()
+		  (car record))))
+  (define (get-address file name)
+	(let ((record (find-record (get-records file) name)))
+	  (if (null? record) '()
+		  (cadr (caddr record)))))
+  (define (get-salary file name)
+	(let ((record (find-record (get-records file) name)))
+	  (if (null? record) '()
+  		  (cadr (cadr record)))))
+  ;; private
+  (define (get-records file)
+	(cadr file))
+  (define (find-record records name)
+	(cond ((null? records) '())
+		  ((eq? (caar records) name) (car records))
+		  (else (find-record (cdr records) name))))
+  ;; インターフェース
+  (put 'kitsune 'get-address get-address)
+  (put 'kitsune 'get-salary get-salary)
+  (put 'kitsune 'get-name get-name)
+  'done)
+
+;; 複数のファイルから従業員を探す
+(define (get-employee-record file-list name)
+  (define (iter file)
+	(if (null? file)
+		'()
+		(let ((result (get-record (car file) name)))
+		  (if (null? result)
+			  (iter (cdr file))
+			  result))))
+  (iter file-list))
+
+;; d
+;; 上記のget-name, get-address, get-salaryインターフェースを実装する
