@@ -281,3 +281,31 @@
 
 ;; d
 ;; 上記のget-name, get-address, get-salaryインターフェースを実装する
+
+;; メッセージパッシング
+(define (make-from-real-imag x y)
+  (define (dispatch op)
+	(cond ((eq? op 'real-part) x)
+		  ((eq? op 'imag-part) y)
+		  ((eq? op 'magnitude)
+		   (sqrt (+ (square x) (square y))))
+		  ((eq? op 'angle) (atan y x))
+		  (else
+		   (error "Unknown op -- MAKE-FROM-REAL-IMAG" op))))
+  dispatch)
+(define (apply-generic op arg) (arg op))
+
+;; R2.75
+(define (make-from-mag-ang r a)
+  (define (displatch op)
+	(cond ((eq? op 'real-part) (* r (cos a))
+		  ((eq? op 'imag-part) (* r (sin a))
+		  ((eq? op 'magnitude) r)
+		  ((eq? op 'angle) a)
+		  (else
+		   (error "Unknown op -- MAKE-FROM-REAL-IMAG" op))))))
+  dispatch)
+
+;; R2.76
+;; 新しい型が増える場合、データ主導がよい?(新しい型を定義しても他の型と独立に定義できるため)
+;; 新しい演算が増える場合、メッセージパッシングがよい?(データ主導ではすべての型に追加した演算を定義しなければならないため)
