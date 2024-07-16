@@ -60,7 +60,7 @@
 (define (imag-part z) (apply-generic 'imag-part z))
 (define (magnitude z) (apply-generic 'magnitude z))
 (define (angle z) (apply-generic 'angle z))
-
+(define (equ? l r) (apply-generic 'equ? l r))
 
 (define (install-scheme-number-package)
   (define (tag x)
@@ -75,6 +75,8 @@
 	   (lambda (x y) (tag (/ x y))))
   (put 'make 'scheme-number
 	   (lambda (x) (tag x)))
+  (put 'equ? '(scheme-number scheme-number)
+	   (lambda (l r) (= l r)))
   'done)
 (define (make-scheme-number n)
   ((get 'make 'scheme-number) n))
@@ -100,6 +102,10 @@
   (define (div-rat x y)
 	(make-rat (* (numer x) (denom y))
 			  (* (denom x) (numer y))))
+  (define (equ?-rat x y)
+	;; make-ratにて約分ずみ
+	(and (= (number x) (number y))
+		 (= (denom x) (denom y))))
   ;; システムの他の部分へのインターフェース
   (define (tag x) (attach-tag 'rational x))
   (put 'add '(rational rational)
@@ -112,6 +118,8 @@
 	   (lambda (x y) (tag (div-rat x y))))
   (put 'make 'rational
 	   (lambda (n d) (tag (make-rat n d))))
+  (put 'equ? '(rational rational)
+	   (lambda (l r) (equ?-rat l r)))
   'done)
 (define (make-rational n d)
   ((get 'make 'rational) n d))
@@ -137,6 +145,9 @@
   (define (sub-complex z1 z2)
 	(make-from-mag-ang (/ (magnitude z1) (magnitude z2))
 					   (- (angle z1) (angle z2))))
+  (define (equ?-complex r l)
+	(and (= (real-part l) (real-part r))
+		 (= (imag-part l) (imag-part r))))
   ;; システムの他の部分へのインターフェース
   (define (tag z) (attach-tag 'complex z))
   (put 'add '(complex complex)
@@ -155,6 +166,8 @@
   (put 'imag-part '(complex) imag-part)
   (put 'magnitude '(complex) magnitude)
   (put 'angle '(complex) angle)
+  (put 'equ? '(complex complex)
+	   (lambda (l r) (equ?-complex l r)))
   'done)
 
 ;; 2.4.3 データ主導プログラミングと加法性
@@ -221,7 +234,7 @@
 (define (attach-tag tag-type contents)
   (if (eq? tag-type 'scheme-number)
 	  contents
-	  (cons type-tag contents)))
+	  (cons tag-type contents)))
 ;;
 (define (type-tag datum)
   (cond ((number? datum) 'scheme-number) ;; scheme-numberのタグはここでつける(make-scheme-numberしなくてもよいようにするため)
@@ -234,6 +247,12 @@
    (else (error "Bad tagged datum -- TYPE-TAG" datum))))
 
 ;; R2.79
-(define (equ? lhs rhs)
-  ;; TODO 実装する
-  '())
+;; これでよくない？？？
+;; (define (equ? lhs rhs)
+;;   (if (eq? (type-tag lhs) (type-tag rhs))
+;; 	  ;; tagが同じならequal?(tagが同じだと意味が違うかもしれないため)
+;; 	  (equal? lhs rhs)
+;; 	  ;; ちがうなら違う
+;; 	  #f))
+
+;; 模範解答は上に書いた
