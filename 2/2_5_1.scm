@@ -61,6 +61,7 @@
 (define (magnitude z) (apply-generic 'magnitude z))
 (define (angle z) (apply-generic 'angle z))
 (define (equ? l r) (apply-generic 'equ? l r))
+(define (=zero? x) (apply-generic '=zero? x))
 
 (define (install-scheme-number-package)
   (define (tag x)
@@ -77,6 +78,8 @@
 	   (lambda (x) (tag x)))
   (put 'equ? '(scheme-number scheme-number)
 	   (lambda (l r) (= l r)))
+  (put '=zero? '(scheme-number)
+	   (lambda (x) (= x 0)))
   'done)
 (define (make-scheme-number n)
   ((get 'make 'scheme-number) n))
@@ -104,8 +107,10 @@
 			  (* (denom x) (numer y))))
   (define (equ?-rat x y)
 	;; make-ratにて約分ずみ
-	(and (= (number x) (number y))
+	(and (= (numer x) (numer y))
 		 (= (denom x) (denom y))))
+  (define (=zero?-rat x)
+	(= (numer x) 0))
   ;; システムの他の部分へのインターフェース
   (define (tag x) (attach-tag 'rational x))
   (put 'add '(rational rational)
@@ -120,6 +125,8 @@
 	   (lambda (n d) (tag (make-rat n d))))
   (put 'equ? '(rational rational)
 	   (lambda (l r) (equ?-rat l r)))
+  (put '=zero? '(rational)
+	   (lambda (x) (=zero?-rat x)))
   'done)
 (define (make-rational n d)
   ((get 'make 'rational) n d))
@@ -148,6 +155,8 @@
   (define (equ?-complex r l)
 	(and (= (real-part l) (real-part r))
 		 (= (imag-part l) (imag-part r))))
+  (define (=zero?-complex x)
+	(and (= (real-part x) 0) (= (imag-part x) 0)))
   ;; システムの他の部分へのインターフェース
   (define (tag z) (attach-tag 'complex z))
   (put 'add '(complex complex)
@@ -168,6 +177,8 @@
   (put 'angle '(complex) angle)
   (put 'equ? '(complex complex)
 	   (lambda (l r) (equ?-complex l r)))
+  (put '=zero? '(complex)
+	   (lambda (x) (=zero?-complex x)))
   'done)
 
 ;; 2.4.3 データ主導プログラミングと加法性
@@ -256,3 +267,12 @@
 ;; 	  #f))
 
 ;; 模範解答は上に書いた
+
+;; R2.80
+;; 上に書いた
+
+(install-scheme-number-package)
+(install-rational-package)
+(install-complex-package)
+(install-rectangle-package)
+(install-polar-package)
