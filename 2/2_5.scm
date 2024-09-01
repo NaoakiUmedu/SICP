@@ -278,12 +278,6 @@
 ;; R2.80
 ;; 上に書いた
 
-(install-scheme-number-package)
-(install-rational-package)
-(install-complex-package)
-(install-rectangle-package)
-(install-polar-package)
-
 ;;2.5.2
 
 ;; 複素数+整数をパッケージに組み込む...がどっちのほうに入れる???
@@ -382,33 +376,51 @@
 ;; 上に書いた
 
 ;; R2.84
-(define (raise-to-top-or-other self other)
-  (let ((self-type (type-tag self))
-		(other-type (type-tag other)))
-	(if (eq? self-type other-type)
-		self
-		(if (get raise self-type)
-			(try-coercion (raise self) other)
-			self))))
-(define (is-heigher l r)
-  (let ((raised-l (raise-to-top-or-other l r)))
-	(if (= (type-tag raised-l) (type-tag r))
-		#f;; rに負ける雑魚
-		#t)))
+(define (higher-type x y)
+  ;; 型の塔を宣言
+  (let ((tower '(complex real ratioinal scheme-number)))
+	(define (iter twr)
+	  (if (null? twr)
+		  #f
+		  ;; 塔の上の方から型を見ていき、高い方の型を返す
+		  (cond ((eq? x (car twr)) x)
+				((eq? y (car twr)) y)
+				(else (iter (cdr twr))))))
+	(iter tower)))
+
+(define (coerce-higher-type items)
+  (let ((item1 (car items))
+		(item2 (cadr items)))
+	(let ((type1 (type-tag item1))
+		  (type2 (type-tag item2)))
+	  (if (eq? type1 type2)
+		  items
+		  (let ((tag (higher-type type1 type2)))
+			;; 高い方の相手に合わす
+			(if (eq? tag type1)
+				(coerce-higher-type (list item1 (raise item2)))
+				(coerce-higher-type (list (raise item1) item2))))))))
 
 (define (apply-generic op . args)
-  ;; 強制型変換を試みる
-  (define (try-coercion types)
-	(define (convert type args)
-	  (if (null? type) '()
-		  (cons ((get-coercion (car type) (car types)) (car args))
-				(convert (cdr type) (cdr args)))))
-	(if (null? types)
-		(error "No method for these types"
-			   (list op type-tags))
-		(eval (cons apply-generic (cons op (convert type-tags args))))));; 変換後の型でapply-genericをもっかい試す
   (let ((type-tags (map type-tag args)))
 	(let ((proc (get op type-tags)))
 	  (if proc
-		  (apply proc (map contents args));; 処理があればそれをする
-		  (try-coercion type-tags)))));; なければ強制型変換
+		  (apply proc (map contents args));; 処理があるのでそれをする
+		  (if (= (length args) 2)
+			  (let ((type1 (car type-tags))
+					(type2 (cadr type-tags)))
+				(if (eq? type1 type2)
+					(error "E1. No method for these types" (list op type-tags))
+					(let ((coerced-args (coerce-higher-type args)));; 型変換して処理を試みる
+					  (let ((proc (get op (map type-tag coerced-args))))
+						(if proc
+							(apply proc (map contents coerced-args))
+							(error "E2. No method for these types" (list op type-tags)))))))
+		  	  (error "E3. No method for these types" (list op type-tags)))))))
+
+;; インストール処理
+(install-scheme-number-package)
+(install-rational-package)
+(install-complex-package)
+(install-rectangle-package)
+(install-polar-package)
