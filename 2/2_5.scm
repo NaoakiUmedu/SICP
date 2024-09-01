@@ -1,3 +1,4 @@
+;;; 2.5.1
 ;; 一般「演算」手続き
 (define (apply-generic op . args)
   (let ((type-tags (map type-tag args)))
@@ -62,6 +63,7 @@
 (define (angle z) (apply-generic 'angle z))
 (define (equ? l r) (apply-generic 'equ? l r))
 (define (=zero? x) (apply-generic '=zero? x))
+(define (raise x) (apply-generic 'raise x))
 
 (define (install-scheme-number-package)
   (define (tag x)
@@ -80,6 +82,8 @@
 	   (lambda (l r) (= l r)))
   (put '=zero? '(scheme-number)
 	   (lambda (x) (= x 0)))
+  (put 'raise '(scheme-number)
+	   (lambda (x) (make-rational x 1)))
   'done)
 (define (make-scheme-number n)
   ((get 'make 'scheme-number) n))
@@ -127,6 +131,9 @@
 	   (lambda (l r) (equ?-rat l r)))
   (put '=zero? '(rational)
 	   (lambda (x) (=zero?-rat x)))
+  (put 'raise '(rational)
+	   (lambda (x) (make-complex-from-real-imag (/ (numer x) (denom x))
+												0)))
   'done)
 (define (make-rational n d)
   ((get 'make 'rational) n d))
@@ -276,3 +283,132 @@
 (install-complex-package)
 (install-rectangle-package)
 (install-polar-package)
+
+;;2.5.2
+
+;; 複素数+整数をパッケージに組み込む...がどっちのほうに入れる???
+;; (define (add-complex-to-schemenum z x)
+;;   (make-from-real-imag (+ (real-part z) x)
+;; 					   (imag-part z)))
+;; (put 'add '(complex-scheme-number)
+;; 	 (lambda (z x) (tag (add-complex-to-schemenum z x))))
+
+;; 強制型変換テーブルの定義
+(define coercion-table (make-table))
+(define get-coercion (coercion-table 'lookup-proc))
+(define put-coercion (coercion-table 'insert-proc!))
+
+;;強制型変換
+(define (scheme-number->complex n)
+  (make-complex-from-real-imag (contents n) 0))
+
+(put-coercion 'scheme-number 'complex scheme-number->complex)
+
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+	(let ((proc (get op type-tags)))
+	  (if proc
+		  ;; 該当する組み合わせのprocがあればそれをする
+		  (apply proc (map contents args))
+		  (if (= (length args) 2)
+			  ;; 強制型変換を試みる
+			  (let ((type1 (car type-tags))
+					(type2 (cadr type-tags))
+					(a1 (car args))
+					(a2 (cadr args)))
+				(let ((t1->t2 (get-coercion type1 type2))
+					  (t2->t1 (get-coercion type2 type1)))
+				  (cond (t1->t2
+						 (apply-generic op (t1->t2 a1) a2))
+						(t2->t1
+						 (apply-generic op a1 (t2->t1 a2)))
+						(else
+						 (error "No method for these types"
+								(list op type-tags))))))
+			  ;; 一般化は2.82でする
+			  (error "No method for these types"
+					 (list op type-tags)))))))
+
+;; R2.81
+;; a 無限ループする(第一引数を第二引数の型へ、第二引数を第一引数の型へ変換し、変換後の型でapply-genericをよぶところ)
+;; b このままで動く
+;; c
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+	(let ((proc (get op type-tags)))
+	  (if proc
+		  ;; 該当する組み合わせのprocがあればそれをする
+		  (apply proc (map contents args))
+		  (if (and (= (length args) 2)
+				   ;; タグが同じなら強制型変換しない
+				   (not (equal? (car type-tags) (cadr type-tags))))
+			  ;; 強制型変換を試みる
+			  (let ((type1 (car type-tags))
+					(type2 (cadr type-tags))
+					(a1 (car args))
+					(a2 (cadr args)))
+				(let ((t1->t2 (get-coercion type1 type2))
+					  (t2->t1 (get-coercion type2 type1)))
+				  (cond (t1->t2
+						 (apply-generic op (t1->t2 a1) a2))
+						(t2->t1
+						 (apply-generic op a1 (t2->t1 a2)))
+						(else
+						 (error "No method for these types"
+								(list op type-tags))))))
+			  ;; 一般化は2.82でする
+			  (error "No method for these types"
+					 (list op type-tags)))))))
+
+;; R2.82
+(define (apply-generic op . args)
+  ;; 強制型変換を試みる
+  (define (try-coercion types)
+	(define (convert type args)
+	  (if (null? type) '()
+		  (cons ((get-coercion (car type) (car types)) (car args))
+				(convert (cdr type) (cdr args)))))
+	(if (null? types)
+		(error "No method for these types"
+			   (list op type-tags))
+		(eval (cons apply-generic (cons op (convert type-tags args))))));; 変換後の型でapply-genericをもっかい試す
+  (let ((type-tags (map type-tag args)))
+	(let ((proc (get op type-tags)))
+	  (if proc
+		  (apply proc (map contents args));; 処理があればそれをする
+		  (try-coercion type-tags)))));; なければ強制型変換
+
+;; R2.83
+;; 上に書いた
+
+;; R2.84
+(define (raise-to-top-or-other self other)
+  (let ((self-type (type-tag self))
+		(other-type (type-tag other)))
+	(if (eq? self-type other-type)
+		self
+		(if (get raise self-type)
+			(try-coercion (raise self) other)
+			self))))
+(define (is-heigher l r)
+  (let ((raised-l (raise-to-top-or-other l r)))
+	(if (= (type-tag raised-l) (type-tag r))
+		#f;; rに負ける雑魚
+		#t)))
+
+(define (apply-generic op . args)
+  ;; 強制型変換を試みる
+  (define (try-coercion types)
+	(define (convert type args)
+	  (if (null? type) '()
+		  (cons ((get-coercion (car type) (car types)) (car args))
+				(convert (cdr type) (cdr args)))))
+	(if (null? types)
+		(error "No method for these types"
+			   (list op type-tags))
+		(eval (cons apply-generic (cons op (convert type-tags args))))));; 変換後の型でapply-genericをもっかい試す
+  (let ((type-tags (map type-tag args)))
+	(let ((proc (get op type-tags)))
+	  (if proc
+		  (apply proc (map contents args));; 処理があればそれをする
+		  (try-coercion type-tags)))));; なければ強制型変換
