@@ -418,9 +418,57 @@
 							(error "E2. No method for these types" (list op type-tags)))))))
 		  	  (error "E3. No method for these types" (list op type-tags)))))))
 
+;; R2.85
+;; 自分で実装しても他の人のをコピペしても、(別の型同士の演算で)raise後のdropが無限ループする
+;; 後回しにする
+;; (define (install-project-package)
+;;   (define (complex->rational x)
+;; 	(make-rational (real-part x) 1))
+;;   (define (rational->scheme-number x)
+;; 	(let ((numer (car x))
+;; 		  (denom (cdr x)))
+;; 	  (make-scheme-number (round (/ n d)))))
+;;   (put 'project 'complex complex->rational)
+;;   (put 'project 'rational rational->scheme-number)
+;;   'done)
+;; (define (project x)
+;;   (let ((proc (get 'project (type-tag x))))
+;; 	(if proc
+;; 		(proc (contents x))
+;; 		#f)))
+
+;; (define (drop x)
+;;   (print "dropping..." x)
+;;   (if (pair? x)
+;; 	  (let ((projected (project x)))
+;; 		(if projected
+;; 			(if (equ? (raise projected) x)
+;; 				(drop projected)
+;; 				x)
+;; 			x))
+;; 	  x))
+
+;; (define (apply-generic op . args)
+;;   (let ((type-tags (map type-tag args)))
+;; 	(let ((proc (get op type-tags)))
+;; 	  (if proc
+;; 		  (drop (apply proc (map contents args)));; 処理があるのでそれをする
+;; 		  (if (= (length args) 2)
+;; 			  (let ((type1 (car type-tags))
+;; 					(type2 (cadr type-tags)))
+;; 				(if (eq? type1 type2)
+;; 					(error "E1. No method for these types" (list op type-tags))
+;; 					(let ((coerced-args (coerce-higher-type args)));; 型変換して処理を試みる
+;; 					  (let ((proc (get op (map type-tag coerced-args))))
+;; 						(if proc
+;; 							(drop (apply proc (map contents coerced-args)))
+;; 							(error "E2. No method for these types" (list op type-tags)))))))
+;; 		  	  (error "E3. No method for these types" (list op type-tags)))))))
+
 ;; インストール処理
 (install-scheme-number-package)
 (install-rational-package)
 (install-complex-package)
 (install-rectangle-package)
 (install-polar-package)
+(install-project-package)
